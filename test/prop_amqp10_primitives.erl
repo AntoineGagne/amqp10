@@ -75,6 +75,10 @@ primitive_symbol() ->
 primitive_list() ->
     ?LET(List, list(oneof(non_growing_primitives())), {list, List}).
 
+primitive_map() ->
+    ?LET(List, list({oneof(non_growing_primitives()), oneof(non_growing_primitives())}),
+         {map, maps:from_list(List)}).
+
 ascii_binary() ->
     ?LET(Characters, list(byte()), list_to_binary(Characters)).
 
@@ -83,7 +87,8 @@ ascii_binary() ->
 %%%===================================================================
 
 growing_primitives() ->
-    [primitive_list()].
+    [primitive_list(),
+     primitive_map()].
 
 non_growing_primitives() ->
     [primitive_null(),

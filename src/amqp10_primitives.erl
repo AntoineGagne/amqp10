@@ -115,6 +115,16 @@ do_encode({list, Elements}) ->
             <<16#D0, (Size + 4):32/unsigned, Count:32/unsigned, Encoded/binary>>;
         Size ->
             <<16#C0, (Size + 1):8/unsigned, Count:8/unsigned, Encoded/binary>>
+    end;
+do_encode({map, V}) ->
+    Count = map_size(V) * 2,
+    Encoded = << <<(do_encode(Key))/binary, (do_encode(Value))/binary>> ||
+                 {Key, Value} <- maps:to_list(V) >>,
+    case byte_size(Encoded) of
+        Size when Count >= 16#FF; Size >= 16#FF ->
+            <<16#D1, (Size + 4):32/unsigned, Count:32/unsigned, Encoded/binary>>;
+        Size ->
+            <<16#C1, (Size + 1):8/unsigned, Count:8/unsigned, Encoded/binary>>
     end.
 
 do_decode_all({Element, <<>>}, Acc) ->
@@ -190,10 +200,23 @@ do_decode(<<16#C0, Size:8/unsigned, Remainder:Size/binary, Rest/binary>>) ->
     {{list, decode_compound(Count, Binary, [])}, Rest};
 do_decode(<<16#D0, Size:32/unsigned, Remainder:Size/binary, Rest/binary>>) ->
     <<Count:32, Binary/binary>> = Remainder,
-    {{list, decode_compound(Count, Binary, [])}, Rest}.
+    {{list, decode_compound(Count, Binary, [])}, Rest};
+do_decode(<<16#C1, Size:8/unsigned, Remainder:Size/binary, Rest/binary>>) ->
+    <<Count:8, Binary/binary>> = Remainder,
+    {{map, decode_map(Count, Binary, #{})}, Rest};
+do_decode(<<16#D1, Size:32/unsigned, Remainder:Size/binary, Rest/binary>>) ->
+    <<Count:32, Binary/binary>> = Remainder,
+    {{map, decode_map(Count, Binary, #{})}, Rest}.
 
 decode_compound(0, <<>>, Elements) ->
     lists:reverse(Elements);
 decode_compound(Count, Binary, Elements) ->
     {Element, Rest} = do_decode(Binary),
     decode_compound(Count - 1, Rest, [Element | Elements]).
+
+decode_map(0, <<>>, Elements) ->
+    Elements;
+decode_map(Count, Binary, Elements) ->
+    {Key, R1} = do_decode(Binary),
+    {Value, R2} = do_decode(R1),
+    decode_map(Count - 2, R2, Elements#{Key => Value}).
