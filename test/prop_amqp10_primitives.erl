@@ -14,7 +14,7 @@ prop_encode_and_decode_are_inverse() ->
     ?FORALL(Primitive, primitive(),
             begin
                 Encoded = amqp10_primitives:encode(Primitive),
-                [Decoded] = amqp10_primitives:decode(Encoded),
+                {Decoded, <<>>} = amqp10_primitives:decode(Encoded),
                 ?WHENFAIL(io:format("Primitive: ~p~n"
                                     "Encoded: ~p~n"
                                     "Decoded: ~p~n",
@@ -27,15 +27,7 @@ prop_encode_and_decode_are_inverse() ->
 %%%===================================================================
 
 primitive() ->
-    oneof([primitive_null(),
-           primitive_boolean(),
-           primitive_ubyte(),
-           primitive_uint(),
-           primitive_ulong(),
-           primitive_byte(),
-           primitive_short(),
-           primitive_int(),
-           primitive_long()]).
+    oneof([oneof(non_growing_primitives()), oneof(growing_primitives())]).
 
 primitive_null() ->
     exactly(null).
@@ -45,26 +37,66 @@ primitive_boolean() ->
          ?LET(Boolean, oneof([{boolean, V}, V]), Boolean)).
 
 primitive_ubyte() ->
-    ?LET(V, range(0, 16#FF), {ubyte, V}).
+    ?LETSHRINK(V, range(0, 16#FF), {ubyte, V}).
+
+primitive_ushort() ->
+    ?LETSHRINK(V, range(0, 16#FFFF), {ushort, V}).
 
 primitive_uint() ->
-    ?LET(V, range(0, 16#FFFFFFFF), {uint, V}).
+    ?LETSHRINK(V, range(0, 16#FFFFFFFF), {uint, V}).
 
 primitive_ulong() ->
-    ?LET(V, range(0, 16#FFFFFFFFFFFFFFFF), {ulong, V}).
+    ?LETSHRINK(V, range(0, 16#FFFFFFFFFFFFFFFF), {ulong, V}).
 
 primitive_byte() ->
-    ?LET(V, range(-16#80, 16#7F), {byte, V}).
+    ?LETSHRINK(V, range(-16#80, 16#7F), {byte, V}).
 
 primitive_short() ->
-    ?LET(V, range(-16#8000, 16#7FFF), {short, V}).
+    ?LETSHRINK(V, range(-16#8000, 16#7FFF), {short, V}).
 
 primitive_int() ->
-    ?LET(V, range(-16#80000000, 16#7FFFFFFF), {int, V}).
+    ?LETSHRINK(V, range(-16#80000000, 16#7FFFFFFF), {int, V}).
 
 primitive_long() ->
-    ?LET(V, range(-16#8000000000000000, 16#7FFFFFFFFFFFFFFF), {long, V}).
+    ?LETSHRINK(V, range(-16#8000000000000000, 16#7FFFFFFFFFFFFFFF), {long, V}).
+
+primitive_timestamp() ->
+    ?LETSHRINK(V, range(-16#8000000000000000, 16#7FFFFFFFFFFFFFFF), {timestamp, V}).
+
+primitive_binary() ->
+    ?LET(V, binary(), {binary, V}).
+
+primitive_string() ->
+    ?LET(V, string(), {string, V}).
+
+primitive_symbol() ->
+    ?LET(Symbol, ascii_binary(), {symbol, Symbol}).
+
+primitive_list() ->
+    ?LET(List, list(oneof(non_growing_primitives())), {list, List}).
+
+ascii_binary() ->
+    ?LET(Characters, list(byte()), list_to_binary(Characters)).
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+growing_primitives() ->
+    [primitive_list()].
+
+non_growing_primitives() ->
+    [primitive_null(),
+     primitive_boolean(),
+     primitive_ubyte(),
+     primitive_ushort(),
+     primitive_uint(),
+     primitive_ulong(),
+     primitive_byte(),
+     primitive_short(),
+     primitive_int(),
+     primitive_long(),
+     primitive_timestamp(),
+     primitive_binary(),
+     primitive_string(),
+     primitive_symbol()].
