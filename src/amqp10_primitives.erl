@@ -117,7 +117,7 @@ do_encode({list, Elements}) ->
             <<16#C0, (Size + 1):8/unsigned, Count:8/unsigned, Encoded/binary>>
     end;
 do_encode({map, V}) ->
-    Count = map_size(V) * 2,
+    Count = map_size(V),
     Encoded = << <<(do_encode(Key))/binary, (do_encode(Value))/binary>> ||
                  {Key, Value} <- maps:to_list(V) >>,
     case byte_size(Encoded) of
@@ -219,4 +219,4 @@ decode_map(0, <<>>, Elements) ->
 decode_map(Count, Binary, Elements) ->
     {Key, R1} = do_decode(Binary),
     {Value, R2} = do_decode(R1),
-    decode_map(Count - 2, R2, Elements#{Key => Value}).
+    decode_map(Count - 1, R2, Elements#{Key => Value}).
